@@ -90,18 +90,17 @@ func Run() {
 	log.Infof("Starting metrics exporter. Version:%s GitSHA:%s BuiltAt:%s\n", version.Version, version.GitSHA, version.BuiltAt)
 
 	// Initialize k8s API clients
-	_, chopClient := chop.GetClientset(kubeConfigFile, masterURL)
+	kubeClient, _, chopClient := chop.GetClientset(kubeConfigFile, masterURL)
 
 	// Create operator instance
-	chop := chop.GetCHOp(chopClient, chopConfigFile)
-	chop.SetupLog()
-	chop.Config().WriteToLog()
+	chop.New(kubeClient, chopClient, chopConfigFile)
+	log.Info(chop.Config().String(true))
 
 	exporter := metrics.StartMetricsREST(
 		metrics.NewCHAccessInfo(
-			chop.Config().CHUsername,
-			chop.Config().CHPassword,
-			chop.Config().CHPort,
+			chop.Config().ClickHouse.Access.Username,
+			chop.Config().ClickHouse.Access.Password,
+			chop.Config().ClickHouse.Access.Port,
 		),
 
 		metricsEP,
@@ -111,7 +110,7 @@ func Run() {
 		chiListPath,
 	)
 
-	exporter.DiscoveryWatchedCHIs(chop, chopClient)
+	exporter.DiscoveryWatchedCHIs(chopClient)
 
 	<-ctx.Done()
 }
